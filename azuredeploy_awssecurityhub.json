@@ -160,7 +160,7 @@
                         "AWSSecretAccessKey": "[parameters('AWSSecretAccessKey')]",
                         "AWSRegionName": "[parameters('AWSRegionName')]",
 						"Schedule":"[parameters('FunctionSchedule')]",
-                        "WEBSITE_RUN_FROM_PACKAGE": "https://github.com/andedevsecops/AWS-Security-Hub-Data-Connector/blob/master/AzFunAWSSecurityHubIngestion.zip?raw=true"
+                        "WEBSITE_RUN_FROM_PACKAGE": "https://github.com/andedevsecops/AWS-Security-Hub-Data-Connector/blob/main/AzFunAWSSecurityHubIngestion.zip?raw=true"
                     }
                 }
             ]

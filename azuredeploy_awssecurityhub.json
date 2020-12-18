@@ -26,6 +26,10 @@
             "type": "string",
             "defaultValue": "<AWSRegionName>"
         },
+		"LogAnalyticsCustomLogName": {
+            "type": "string",
+            "defaultValue": "<LogAnalyticsCustomLogName>"
+        },
 		"FunctionSchedule": {
 			"type": "string",
 			"defaultValue": "0 */10 * * * *",
@@ -159,6 +163,7 @@
                         "AWSAccessKeyId": "[parameters('AWSAccessKeyId')]",
                         "AWSSecretAccessKey": "[parameters('AWSSecretAccessKey')]",
                         "AWSRegionName": "[parameters('AWSRegionName')]",
+						"LogAnalyticsCustomLogName":"[parameters('LogAnalyticsCustomLogName')]",
 						"Schedule":"[parameters('FunctionSchedule')]",
                         "WEBSITE_RUN_FROM_PACKAGE": "https://github.com/andedevsecops/AWS-Security-Hub-Data-Connector/blob/main/AzFunAWSSecurityHubIngestion.zip?raw=true"
                     }

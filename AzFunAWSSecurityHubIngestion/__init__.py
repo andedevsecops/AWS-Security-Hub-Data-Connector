@@ -24,7 +24,7 @@ sentinel_shared_key = os.environ.get('WorkspaceKey')
 aws_access_key_id = os.environ.get('AWSAccessKeyId')
 aws_secret_acces_key = os.environ.get('AWSSecretAccessKey')
 aws_region_name = os.environ.get('AWSRegionName')
-sentinel_log_type = 'AWS_SecurityHub'
+sentinel_log_type = os.environ.get('LogAnalyticsCustomLogName')
 
 
 def main(mytimer: func.TimerRequest) -> None:
@@ -34,30 +34,32 @@ def main(mytimer: func.TimerRequest) -> None:
     logging.info('Starting program')
     
     sentinel = AzureSentinelConnector(sentinel_customer_id, sentinel_shared_key, sentinel_log_type, queue_size=10000, bulks_number=10)
-    cli = SecurityHubClient(aws_access_key_id, aws_secret_acces_key, aws_region_name)
+    securityHubSession = SecurityHubClient(aws_access_key_id, aws_secret_acces_key, aws_region_name)
 
-    results = cli.getFindings()    
-    fresh_events_after_this_time = cli.freshEventTimestampGenerator()
+    results = securityHubSession.getFindings()    
+    fresh_events_after_this_time = securityHubSession.freshEventTimestampGenerator()
     fresh_events = True
-    first_call = True   
+    first_call = True
+    failed_sent_events_number = 0
+    successfull_sent_events_number = 0
     
     while ((first_call or 'NextToken' in results) and fresh_events):
         # Loop through all findings (20 by default) returned by Security Hub API call
-		# If finding has the string "SENT TO LAW" in the finding note, the event is not sent but
+		# If finding has the string "INGESTED BY AZURE LAW" in the finding note, the event is not sent but
 		# loop will continue.
-		# Fresh events will be sent to LAW API, "SENT TO LAW" will
+		# Fresh events will be sent to LAW API, "INGESTED BY AZURE LAW" will
 		# be prefixed to the finding's note.
 		# Break out of the loop when we have looked back across the last hour of events (based on the
 		# finding's LastObservedAt timestamp)
         first_call = False
         
         for finding in results['Findings']:
-            finding_timestamp = cli.findingTimestampGenerator(finding['LastObservedAt'])
+            finding_timestamp = securityHubSession.findingTimestampGenerator(finding['LastObservedAt'])
             already_sent = False
             existing_note = ''
-            principal = 'SecurityHubLambda'
+            principal = 'AzureFunctionSecurityHubIngestion'
             if 'Note' in finding:
-                if 'SENT TO LAW:' in finding['Note']['Text']:
+                if 'INGESTED BY AZURE LAW:' in finding['Note']['Text']:
                     already_sent = True
                 else:
                     existing_note = finding['Note']['Text']
@@ -83,36 +85,39 @@ def main(mytimer: func.TimerRequest) -> None:
 				      ],
 				}
                 
-                sentinel.send(payload)
+                with sentinel:
+                    sentinel.send(payload)
+                
+                failed_sent_events_number += sentinel.failed_sent_events_number
+                successfull_sent_events_number += sentinel.successfull_sent_events_number
+                
                 if not sentinel.failedToSend:
-                    print('Event successfully sent to LAW')
-                    sentinel.failedToSend = False
-                    cli.updateFindingNote(existing_note, principal, filters)
-                    failed_sent_events_number += sentinel.failed_sent_events_number
-                    successfull_sent_events_number += sentinel.successfull_sent_events_number
+                    logging.info('Event successfully sent to LAW')                    
+                    securityHubSession.updateFindingNote(existing_note, principal, filters)
                 else:
-                    print('Event NOT successfully sent to LAW')
+                    logging.info('Event NOT successfully sent to LAW')
             else:
                 fresh_events = False
                 break
             
             if (fresh_events):
-                results = cli.getFindingsWithToken(results['NextToken'])
+                results = securityHubSession.getFindingsWithToken(results['NextToken'])
     
     if failed_sent_events_number:
         logging.error('{} events have not been sent'.format(failed_sent_events_number))
 
-    logging.info('Program finished. {} events have been sent. {} events have not been sent'.format(successfull_sent_events_number, failed_sent_events_number))
+    if successfull_sent_events_number:
+        logging.info('Program finished. {} events have been sent. {} events have not been sent'.format(successfull_sent_events_number, failed_sent_events_number))
+
+    if successfull_sent_events_number == 0 and failed_sent_events_number == 0:
+        logging.info('No Security Hub events')
 
 
 class SecurityHubClient:
     def __init__(self, aws_access_key_id, aws_secret_acces_key, aws_region_name):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_acces_key = aws_secret_acces_key
-        self.aws_region_name = aws_region_name        
-        self.total_events = 0
-        self.input_date_format = '%Y-%m-%d %H:%M:%S'
-        self.output_date_format = '%Y-%m-%dT%H:%M:%SZ'
+        self.aws_region_name = aws_region_name       
 
         self.securityhub = boto3.client(
             'securityhub',
@@ -140,7 +145,7 @@ class SecurityHubClient:
         return self.securityhub.update_findings(
             Filters=filters,
 	        Note={
-	    	    'Text': 'SENT TO LAW: %s' % existing_note,
+	    	    'Text': 'INGESTED BY AZURE LAW: %s' % existing_note,
 	    	    'UpdatedBy': principal
 	        }
 	    )

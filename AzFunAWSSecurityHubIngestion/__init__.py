@@ -45,12 +45,9 @@ def main(mytimer: func.TimerRequest) -> None:
     
     while ((first_call or 'NextToken' in results) and fresh_events):
         # Loop through all findings (20 by default) returned by Security Hub API call
-		# If finding has the string "INGESTED BY AZURE LAW" in the finding note, the event is not sent but
-		# loop will continue.
-		# Fresh events will be sent to LAW API, "INGESTED BY AZURE LAW" will
-		# be prefixed to the finding's note.
-		# Break out of the loop when we have looked back across the last hour of events (based on the
-		# finding's LastObservedAt timestamp)
+		# If finding has the string "INGESTED BY AZURE LAW" in the finding note, the event is not sent but loop will continue.
+		# Fresh events will be sent to Azure LA API, "INGESTED BY AZURE LAW" will be prefixed to the finding's note.
+		# Break out of the loop when we have looked back across the last hour of events (based on the finding's LastObservedAt timestamp)
         first_call = False
         
         for finding in results['Findings']:
@@ -100,7 +97,7 @@ def main(mytimer: func.TimerRequest) -> None:
                 fresh_events = False
                 break
             
-            if (fresh_events):
+            if (fresh_events and results['NextToken']):
                 results = securityHubSession.getFindingsWithToken(results['NextToken'])
     
     if failed_sent_events_number:

@@ -40,7 +40,11 @@
     },
     "variables": {
         "FunctionName": "[concat(toLower(parameters('FunctionName')), uniqueString(resourceGroup().id))]",
-		"StorageAccountName":"[substring(variables('FunctionName'), 0, 22)]"
+		"StorageAccountName":"[substring(variables('FunctionName'), 0, 22)]",
+		"KeyVaultName": "[substring(variables('FunctionName'), 0, 22)]",
+		"LogAnalyticsWorkspaceKey": "LogAnalyticsWorkspaceKey",
+		"AWSAccessKeyId":"AWSAccessKeyId",
+		"AWSSecretAccessKey":"AWSSecretAccessKey"
     },
     "resources": [
         {
@@ -143,15 +147,18 @@
                 "clientAffinityEnabled": true,
                 "alwaysOn": true,
                 "reserved": true
-            },
-            
+            },            
             "resources": [
                 {
                     "apiVersion": "2018-11-01",
                     "type": "config",
                     "name": "appsettings",
                     "dependsOn": [
-                        "[concat('Microsoft.Web/sites/', variables('FunctionName'))]"
+                        "[concat('Microsoft.Web/sites/', variables('FunctionName'))]",
+						"[resourceId('Microsoft.KeyVault/vaults/', variables('KeyVaultName'))]",
+						"[resourceId('Microsoft.KeyVault/vaults/secrets', variables('KeyVaultName'), variables('AWSAccessKeyId'))]",            
+						"[resourceId('Microsoft.KeyVault/vaults/secrets', variables('KeyVaultName'), variables('LogAnalyticsWorkspaceKey'))]",
+						"[resourceId('Microsoft.KeyVault/vaults/secrets', variables('KeyVaultName'), variables('AWSSecretAccessKey'))]"
                     ],
                     "properties": {
                         "FUNCTIONS_EXTENSION_VERSION": "~3",
@@ -160,9 +167,9 @@
                         "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('microsoft.insights/components', variables('FunctionName')), '2015-05-01').ConnectionString]",
                         "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('StorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('StorageAccountName')), '2019-06-01').keys[0].value, ';EndpointSuffix=core.windows.net')]",
                         "WorkspaceID": "[parameters('WorkspaceID')]",
-                        "WorkspaceKey": "[parameters('WorkspaceKey')]",                        
-                        "AWSAccessKeyId": "[parameters('AWSAccessKeyId')]",
-                        "AWSSecretAccessKey": "[parameters('AWSSecretAccessKey')]",
+                        "WorkspaceKey": "[concat('@Microsoft.KeyVault(SecretUri=', reference(variables('LogAnalyticsWorkspaceKey')).secretUriWithVersion, ')')]",                        
+                        "AWSAccessKeyId": "[concat('@Microsoft.KeyVault(SecretUri=', reference(variables('AWSAccessKeyId')).secretUriWithVersion, ')')]",
+                        "AWSSecretAccessKey": "[concat('@Microsoft.KeyVault(SecretUri=', reference(variables('AWSSecretAccessKey')).secretUriWithVersion, ')')]",
                         "AWSRegionName": "[parameters('AWSRegionName')]",
 						"LogAnalyticsCustomLogName":"[parameters('LogAnalyticsCustomLogName')]",
 						"Schedule":"[parameters('FunctionSchedule')]",
@@ -171,6 +178,84 @@
                 }
             ]
         },
+		{
+		  "type": "Microsoft.KeyVault/vaults",
+		  "apiVersion": "2016-10-01",
+		  "name": "[variables('KeyVaultName')]",
+		  "location": "[resourceGroup().location]",
+		  "dependsOn": [
+			"[resourceId('Microsoft.Web/sites', variables('FunctionName'))]"
+		  ],
+		  "properties": {
+			"sku": {
+			  "family": "A",
+			  "name": "Standard"
+			},
+			"tenantId": "[subscription().tenantId]",
+			"accessPolicies": [
+			  {
+				"tenantId": "[subscription().tenantId]",
+				"objectId": "[reference(resourceId('Microsoft.Web/sites', variables('FunctionName')),'2019-08-01', 'full').identity.principalId]",
+				"permissions": {
+				  "secrets": [ "get",
+							   "list"
+							]
+				}
+			  }
+			],
+			"enabledForDeployment": false,
+			"enabledForDiskEncryption": false,
+			"enabledForTemplateDeployment": true,
+			"enableSoftDelete": true
+		  },
+		  "resources": [
+			{
+			  "type": "secrets",
+			  "apiVersion": "2016-10-01",
+			  "name": "[variables('AWSAccessKeyId')]",
+			  "dependsOn": [
+				"[resourceId('Microsoft.KeyVault/vaults/', variables('KeyVaultName'))]"
+			  ],
+			  "properties": {
+				"value": "[parameters('AWSAccessKeyId')]",
+				"contentType": "string",
+				"attributes": {
+				  "enabled": true
+				}
+			  }
+			},
+			{
+			  "type": "secrets",
+			  "apiVersion": "2016-10-01",
+			  "name": "[variables('AWSSecretAccessKey')]",
+			  "dependsOn": [
+				"[resourceId('Microsoft.KeyVault/vaults/', variables('KeyVaultName'))]"
+			  ],
+			  "properties": {
+				"value": "[parameters('AWSSecretAccessKey')]",
+				"contentType": "string",
+				"attributes": {
+				  "enabled": true
+				}
+			  }
+			}, 
+			{
+			  "type": "secrets",
+			  "apiVersion": "2016-10-01",
+			  "name": "[variables('LogAnalyticsWorkspaceKey')]",
+			  "dependsOn": [
+				"[resourceId('Microsoft.KeyVault/vaults/', variables('KeyVaultName'))]"
+			  ],
+			  "properties": {
+				"value": "[parameters('WorkspaceKey')]",
+				"contentType": "string",
+				"attributes": {
+				  "enabled": true
+				}
+			  }
+			}
+		  ]
+		},
         {
             "type": "Microsoft.Web/sites/hostNameBindings",
             "apiVersion": "2018-11-01",

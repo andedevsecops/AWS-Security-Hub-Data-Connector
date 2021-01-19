@@ -97,8 +97,8 @@ def main(mytimer: func.TimerRequest) -> None:
                 fresh_events = False
                 break
             
-            if (fresh_events and results['NextToken']):
-                results = securityHubSession.getFindingsWithToken(results['NextToken'])
+        if (fresh_events and results['NextToken']):
+            results = securityHubSession.getFindingsWithToken(results['NextToken'])
     
     if failed_sent_events_number:
         logging.error('{} events have not been sent'.format(failed_sent_events_number))

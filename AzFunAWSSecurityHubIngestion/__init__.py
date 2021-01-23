@@ -24,7 +24,9 @@ sentinel_shared_key = os.environ.get('WorkspaceKey')
 aws_access_key_id = os.environ.get('AWSAccessKeyId')
 aws_secret_acces_key = os.environ.get('AWSSecretAccessKey')
 aws_region_name = os.environ.get('AWSRegionName')
+aws_securityhub_filters = os.environ.get('SecurityHubFilters')
 sentinel_log_type = os.environ.get('LogAnalyticsCustomLogName')
+fresh_event_timestamp = os.environ.get('FreshEventTimeStamp')
 
 
 def main(mytimer: func.TimerRequest) -> None:
@@ -36,69 +38,37 @@ def main(mytimer: func.TimerRequest) -> None:
     sentinel = AzureSentinelConnector(sentinel_customer_id, sentinel_shared_key, sentinel_log_type, queue_size=10000, bulks_number=10)
     securityHubSession = SecurityHubClient(aws_access_key_id, aws_secret_acces_key, aws_region_name)
 
-    results = securityHubSession.getFindings()    
-    fresh_events_after_this_time = securityHubSession.freshEventTimestampGenerator()
+    results = securityHubSession.getFindings(aws_securityhub_filters)
+    fresh_events_after_this_time = securityHubSession.freshEventTimestampGenerator(int(fresh_event_timestamp))
     fresh_events = True
     first_call = True
     failed_sent_events_number = 0
     successfull_sent_events_number = 0
     
     while ((first_call or 'NextToken' in results) and fresh_events):
-        # Loop through all findings (20 by default) returned by Security Hub API call
-		# If finding has the string "INGESTED BY AZURE LAW" in the finding note, the event is not sent but loop will continue.
-		# Fresh events will be sent to Azure LA API, "INGESTED BY AZURE LAW" will be prefixed to the finding's note.
+        # Loop through all findings (100 per page) returned by Security Hub API call		
 		# Break out of the loop when we have looked back across the last hour of events (based on the finding's LastObservedAt timestamp)
         first_call = False
         
         for finding in results['Findings']:
             finding_timestamp = securityHubSession.findingTimestampGenerator(finding['LastObservedAt'])
-            already_sent = False
-            existing_note = ''
-            principal = 'AzureFunctionSecurityHubIngestion'
-            if 'Note' in finding:
-                if 'INGESTED BY AZURE LAW:' in finding['Note']['Text']:
-                    already_sent = True
-                else:
-                    existing_note = finding['Note']['Text']
-                    principal = finding['Note']['UpdatedBy']
-            
-            if (finding_timestamp > fresh_events_after_this_time and not already_sent):
+                        
+            if (finding_timestamp > fresh_events_after_this_time):
                 payload = {}
                 payload.update({'sourcetype':'aws:securityhub'})
-                payload.update({'event':json.dumps(finding)})
-                
-                filters = {
-					'Id': [
-				         { 
-				            'Comparison': 'EQUALS',
-				            'Value': finding['Id']
-				         }
-				      ],
-				    'LastObservedAt': [
-				         { 
-				            'Start': finding['LastObservedAt'],
-				            'End': finding['LastObservedAt']
-				         }
-				      ],
-				}
+                payload.update({'event':json.dumps(finding)})             
                 
                 with sentinel:
                     sentinel.send(payload)
                 
-                failed_sent_events_number += sentinel.failed_sent_events_number
-                successfull_sent_events_number += sentinel.successfull_sent_events_number
-                
-                if not sentinel.failedToSend:
-                    logging.info('Event successfully sent to LAW')                    
-                    securityHubSession.updateFindingNote(existing_note, principal, filters)
-                else:
-                    logging.info('Event NOT successfully sent to LAW')
+                failed_sent_events_number = sentinel.failed_sent_events_number
+                successfull_sent_events_number = sentinel.successfull_sent_events_number              
             else:
                 fresh_events = False
                 break
             
         if (fresh_events and results['NextToken']):
-            results = securityHubSession.getFindingsWithToken(results['NextToken'])
+            results = securityHubSession.getFindingsWithToken(results['NextToken'], aws_securityhub_filters)
     
     if failed_sent_events_number:
         logging.error('{} events have not been sent'.format(failed_sent_events_number))
@@ -107,7 +77,7 @@ def main(mytimer: func.TimerRequest) -> None:
         logging.info('Program finished. {} events have been sent. {} events have not been sent'.format(successfull_sent_events_number, failed_sent_events_number))
 
     if successfull_sent_events_number == 0 and failed_sent_events_number == 0:
-        logging.info('No Security Hub events')
+        logging.info('No Fresh SecurityHub Events')
 
 
 class SecurityHubClient:
@@ -123,9 +93,9 @@ class SecurityHubClient:
             region_name=self.aws_region_name
         )    
 
-    def freshEventTimestampGenerator(self):
+    def freshEventTimestampGenerator(self, freshEventsDuration):
         tm = datetime.datetime.utcfromtimestamp(time.time())
-        return time.mktime((tm - datetime.timedelta(minutes=60)).timetuple())
+        return time.mktime((tm - datetime.timedelta(minutes=freshEventsDuration)).timetuple())
 
     # Gets the epoch time of a UTC timestamp in a Security Hub finding
     def findingTimestampGenerator(self, finding_time):
@@ -133,25 +103,20 @@ class SecurityHubClient:
         d.astimezone(dateutil.tz.tzutc())
         return time.mktime(d.timetuple())
 
-    # Gets 20 most recent findings from securityhub
+    # Gets 100 most recent findings from securityhub
     def getFindings(self, filters={}):
-        return self.securityhub.get_findings(Filters=filters)
-
-    # Gets 20 most recent findings from securityhub
-    def updateFindingNote(self, existing_note, principal, filters={}):
-        return self.securityhub.update_findings(
+        return self.securityhub.get_findings(
             Filters=filters,
-	        Note={
-	    	    'Text': 'INGESTED BY AZURE LAW: %s' % existing_note,
-	    	    'UpdatedBy': principal
-	        }
-	    )
-
-    # Gets 20 findings from securityhub using the NextToken from a previous request
+            MaxResults=100,
+            SortCriteria=[{"Field": "LastObservedAt", "SortOrder": "desc"}])
+        
+    # Gets 100 findings from securityhub using the NextToken from a previous request
     def getFindingsWithToken(self, token, filters={}):
         return self.securityhub.get_findings(
 	        Filters=filters,
-	        NextToken=token
+	        NextToken=token,
+            MaxResults=100,
+            SortCriteria=[{"Field": "LastObservedAt", "SortOrder": "desc"}]
 	    )
 
 

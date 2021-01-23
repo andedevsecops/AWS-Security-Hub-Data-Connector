@@ -37,7 +37,8 @@ def main(mytimer: func.TimerRequest) -> None:
     
     sentinel = AzureSentinelConnector(sentinel_customer_id, sentinel_shared_key, sentinel_log_type, queue_size=10000, bulks_number=10)
     securityHubSession = SecurityHubClient(aws_access_key_id, aws_secret_acces_key, aws_region_name)
-
+    aws_securityhub_filters = aws_securityhub_filters.replace("\'", "\"")  
+    aws_securityhub_filters = eval(aws_securityhub_filters)
     results = securityHubSession.getFindings(aws_securityhub_filters)
     fresh_events_after_this_time = securityHubSession.freshEventTimestampGenerator(int(fresh_event_timestamp))
     fresh_events = True

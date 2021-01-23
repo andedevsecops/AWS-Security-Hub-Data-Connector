@@ -2,7 +2,7 @@
 Author: Sreedhar Ande  
 
 Security Hub is region-specific, which means you need to turn it on and configure it separately for every region in your account.
-Ingest all the SecurityHub findings (20 by default) returned by SecurityHub API, ingests only fresh findings based on the LastObservedAt timestamp
+Ingest all the SecurityHub findings returned by SecurityHub API, ingests only fresh findings based on the LastObservedAt timestamp
 
 ## Deploy AWS SecurityHub Data connector
  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fandedevsecops%2FAWS-Security-Hub-Data-Connector%2Fmain%2Fazuredeploy_dotcomtenants.json" target="_blank">
@@ -25,9 +25,7 @@ Ingest all the SecurityHub findings (20 by default) returned by SecurityHub API,
 	"AWS Access Key Id": AWS Access Key
 	"AWS Secret Key ID": AWS Secret Key
 	"AWS Region Name" : AWS SecurityHub Region
-	"CustomLogTableName": Azure Log Analytics Custom Log Table Name
-	"Function Schedule": The `TimerTrigger` makes it incredibly easy to have your functions executed on a schedule. The default **Time Interval** is set to pull
-	the last ten (10) minutes of data.
+	"CustomLogTableName": Azure Log Analytics Custom Log Table Name	
 	```
 
 ## Post Deployment Steps
@@ -41,7 +39,42 @@ Ingest all the SecurityHub findings (20 by default) returned by SecurityHub API,
    ```
    **Note: For a `TimerTrigger` to work, you provide a schedule in the form of a [cron expression](https://en.wikipedia.org/wiki/Cron#CRON_expression)(See the link for full details). A cron expression is a string with 6 separate expressions which represent a given schedule via patterns. The pattern we use to represent every 10 minutes is `0 */10 * * * *`. This, in plain text, means: "When seconds is equal to 0, minutes is divisible by 10, for any hour, day of the month, month, day of the week, or year".**
    
-2. AWSAccessKey, AWSSecretAccessKey and Workspace Key will be placed as "Secrets" in the Azure KeyVault `awssecurityhub<<uniqueid>>` with only Azure Function access policy. If you want to see/update these secrets,
+2. Parameterized finding attributes using a environment variable "SecurityHubFilters" which is used to define a condition to filter the returned findings. You can filter by up to 10 finding attributes. For each attribute, you can provide up to 20 filter values.
+   ```
+   Current Filter
+   {"SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},{"Value": "CRITICAL", "Comparison": "EQUALS"},],"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]}  
+   
+   Another Filter
+   {
+		# look for findings that belong to current account
+		# will help deconflict checks run in a master account
+		"AwsAccountId": [{"Value": awsAccountId, "Comparison": "EQUALS"}],
+		# look for high or critical severity findings
+		"SeverityLabel": [
+			{"Value": "HIGH", "Comparison": "EQUALS"},
+			{"Value": "CRITICAL", "Comparison": "EQUALS"},
+		],
+		# look for AWS security hub integrations
+		# company can be AWS or Amazon depending on service
+		"CompanyName": [
+			{"Value": "AWS", "Comparison": "EQUALS"},
+			{"Value": "Amazon", "Comparison": "EQUALS"},
+		],
+		# check for Active Records
+		"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]
+	}
+   ```
+   **Note**  
+   If you want to update/change, make sure you convert your filter into single line before updating environment variable
+   
+3. Parameterized SecurityHub fresh event duration using environment variable "FreshEventTimeStamp". Value must be in minutes.  
+   **Note**  
+   Azure Function trigger schedule and FreshEventTimeStamp
+   Ex: If you want to trigger function every 30 min then values must be
+   FreshEventTimeStamp=30
+   Schedule=0 */30 * * * *
+      
+4. AWSAccessKey, AWSSecretAccessKey and Workspace Key will be placed as "Secrets" in the Azure KeyVault `awssecurityhub<<uniqueid>>` with only Azure Function access policy. If you want to see/update these secrets,
 
 	```
 		a. Go to Azure KeyVault "awssecurityhub<<uniqueid>>"

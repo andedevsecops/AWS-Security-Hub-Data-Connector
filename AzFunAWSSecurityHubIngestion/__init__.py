@@ -68,7 +68,7 @@ def main(mytimer: func.TimerRequest) -> None:
                 fresh_events = False
                 break
             
-        if (fresh_events and results['NextToken']):
+        if (fresh_events and 'NextToken' in results):
             results = securityHubSession.getFindingsWithToken(results['NextToken'], securityhub_filters_dict)
     
     if failed_sent_events_number:

@@ -72,9 +72,10 @@ Ingest all the SecurityHub findings returned by SecurityHub API, ingests only fr
 3. Parameterized SecurityHub fresh event duration using environment variable "FreshEventTimeStamp". Value must be in minutes.  
    **Note**  
    Azure Function trigger schedule and FreshEventTimeStamp
-   Ex: If you want to trigger function every 30 min then values must be
-   FreshEventTimeStamp=30
-   Schedule=0 */30 * * * *
+   Ex: If you want to trigger function every 30 min then values must be  
+   **FreshEventTimeStamp=30**  
+   Schedule=0 */30 * * * *  
+   
       
 4. AWSAccessKey, AWSSecretAccessKey and Workspace Key will be placed as "Secrets" in the Azure KeyVault `awssecurityhub<<uniqueid>>` with only Azure Function access policy. If you want to see/update these secrets,
 

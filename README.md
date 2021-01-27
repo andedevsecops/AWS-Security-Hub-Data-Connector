@@ -42,12 +42,11 @@ Ingest all the SecurityHub findings returned by SecurityHub API, ingests only fr
 2. Parameterized finding attributes using a environment variable "SecurityHubFilters" which is used to define a condition to filter the returned findings. You can filter by up to 10 finding attributes. For each attribute, you can provide up to 20 filter values.
    ```
    Current configured Filter
-  {"SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},{"Value": "CRITICAL", "Comparison": "EQUALS"}],"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]}
-  
+	  {"SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},{"Value": "CRITICAL", "Comparison": "EQUALS"}],"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]}  
    ```
    ```
-   Another Filter 
-   {
+	   Another Filter 
+	   {
 	 # look for findings that belong to current account
 	 # will help deconflict checks run in a master account
 	 "AwsAccountId": [{"Value": awsAccountId, "Comparison": "EQUALS"}],

@@ -41,38 +41,40 @@ Ingest all the SecurityHub findings returned by SecurityHub API, ingests only fr
    
 2. Parameterized finding attributes using a environment variable "SecurityHubFilters" which is used to define a condition to filter the returned findings. You can filter by up to 10 finding attributes. For each attribute, you can provide up to 20 filter values.
    ```
-   Current Filter
-   {"SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},{"Value": "CRITICAL", "Comparison": "EQUALS"},],"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]}  
-   
-   Another Filter
-   {
-		# look for findings that belong to current account
-		# will help deconflict checks run in a master account
-		"AwsAccountId": [{"Value": awsAccountId, "Comparison": "EQUALS"}],
-		# look for high or critical severity findings
-		"SeverityLabel": [
-			{"Value": "HIGH", "Comparison": "EQUALS"},
-			{"Value": "CRITICAL", "Comparison": "EQUALS"},
-		],
-		# look for AWS security hub integrations
-		# company can be AWS or Amazon depending on service
-		"CompanyName": [
-			{"Value": "AWS", "Comparison": "EQUALS"},
-			{"Value": "Amazon", "Comparison": "EQUALS"},
-		],
-		# check for Active Records
-		"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]
+   Current configured Filter
+	  {"SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},{"Value": "CRITICAL", "Comparison": "EQUALS"}],"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]}  
+   ```
+   ```
+	   Another Filter 
+	   {
+	 # look for findings that belong to current account
+	 # will help deconflict checks run in a master account
+	 "AwsAccountId": [{"Value": awsAccountId, "Comparison": "EQUALS"}],
+	 # look for high or critical severity findings
+	 "SeverityLabel": [
+		{"Value": "HIGH", "Comparison": "EQUALS"},
+		{"Value": "CRITICAL", "Comparison": "EQUALS"},
+	 ],
+	 # look for AWS security hub integrations
+	 # company can be AWS or Amazon depending on service
+	 "CompanyName": [
+		{"Value": "AWS", "Comparison": "EQUALS"},
+		{"Value": "Amazon", "Comparison": "EQUALS"},
+	 ],
+	 # check for Active Records
+	 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]
 	}
    ```
    **Note**  
-   If you want to update/change, make sure you convert your filter into single line before updating environment variable
+   If you want to update/change SecurityHubFilters environment variable, please convert the filter value into single line
    
 3. Parameterized SecurityHub fresh event duration using environment variable "FreshEventTimeStamp". Value must be in minutes.  
    **Note**  
-   Azure Function trigger schedule and FreshEventTimeStamp
-   Ex: If you want to trigger function every 30 min then values must be
-   FreshEventTimeStamp=30
-   Schedule=0 */30 * * * *
+   Azure Function trigger schedule and FreshEventTimeStamp  
+   Ex: If you want to trigger function every 30 min then values must be  
+   **FreshEventTimeStamp=30**  
+   Schedule=0 */30 * * * *  
+   
       
 4. AWSAccessKey, AWSSecretAccessKey and Workspace Key will be placed as "Secrets" in the Azure KeyVault `awssecurityhub<<uniqueid>>` with only Azure Function access policy. If you want to see/update these secrets,
 

@@ -58,12 +58,8 @@ def main(mytimer: func.TimerRequest) -> None:
             finding_timestamp = securityHubSession.findingTimestampGenerator(finding['LastObservedAt'])
                         
             if (finding_timestamp > fresh_events_after_this_time):
-                payload = {}
-                payload.update({'sourcetype':'aws:securityhub'})
-                payload.update({'event':json.dumps(finding)})             
-                
                 with sentinel:
-                    sentinel.send(payload)
+                    sentinel.send(finding)
                 
                 failed_sent_events_number = sentinel.failed_sent_events_number
                 successfull_sent_events_number = sentinel.successfull_sent_events_number              

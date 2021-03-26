@@ -1,6 +1,8 @@
 # Ingest AWS Security Hub Events to Azure Sentinel
 Author: Sreedhar Ande  
 
+Security Hub is a service that centralizes and organizes alerts and findings from across services. Services include GuardDuty, Macie, IAM Access Analyzer, and AWS Firewall Manager. You can use Security Hub to continuously monitor your environment and perform automated compliance checks.  
+
 Security Hub is region-specific, which means you need to turn it on and configure it separately for every region in your account.
 Ingest all the SecurityHub findings returned by SecurityHub API, ingests only fresh findings based on the LastObservedAt timestamp
 

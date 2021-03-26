@@ -38,6 +38,7 @@ def main(mytimer: func.TimerRequest) -> None:
     sentinel = AzureSentinelConnector(sentinel_customer_id, sentinel_shared_key, sentinel_log_type, queue_size=10000, bulks_number=10)
     securityHubSession = SecurityHubClient(aws_access_key_id, aws_secret_acces_key, aws_region_name)
     securityhub_filters_dict = {}
+    logging.info ('SecurityHubFilters : {0}'.format(aws_securityhub_filters))
     if aws_securityhub_filters:
         securityhub_filters = aws_securityhub_filters.replace("\'", "\"") 
         securityhub_filters_dict = eval(securityhub_filters)
@@ -58,9 +59,10 @@ def main(mytimer: func.TimerRequest) -> None:
             finding_timestamp = securityHubSession.findingTimestampGenerator(finding['LastObservedAt'])
                         
             if (finding_timestamp > fresh_events_after_this_time):
+                logging.info ('SecurityHub Finding:{0}'.format(json.dumps(finding))
                 with sentinel:
-                    sentinel.send(finding)
-                
+                    sentinel.send(json.dumps(finding))
+                    
                 failed_sent_events_number = sentinel.failed_sent_events_number
                 successfull_sent_events_number = sentinel.successfull_sent_events_number              
             else:

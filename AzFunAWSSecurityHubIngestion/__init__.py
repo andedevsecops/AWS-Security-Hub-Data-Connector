@@ -59,7 +59,7 @@ def main(mytimer: func.TimerRequest) -> None:
             finding_timestamp = securityHubSession.findingTimestampGenerator(finding['LastObservedAt'])
                         
             if (finding_timestamp > fresh_events_after_this_time):
-                logging.info ('SecurityHub Finding:{0}'.format(json.dumps(finding))
+                logging.info ('SecurityHub Finding:{0}'.format(json.dumps(finding)))
                 with sentinel:
                     sentinel.send(json.dumps(finding))
                     

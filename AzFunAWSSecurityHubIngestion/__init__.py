@@ -60,8 +60,28 @@ def main(mytimer: func.TimerRequest) -> None:
                         
             if (finding_timestamp > fresh_events_after_this_time):
                 logging.info ('SecurityHub Finding:{0}'.format(json.dumps(finding)))
+                payload = {}                
+                payload.update({'SchemaVersion':finding['SchemaVersion']})
+                payload.update({'Id':finding['Id']})
+                payload.update({'ProductArn':finding['ProductArn']})
+                payload.update({'GeneratorId':finding['GeneratorId']})
+                payload.update({'AwsAccountId':finding['AwsAccountId']})
+                payload.update({'Types':finding['Types']})
+                payload.update({'FirstObservedAt':finding['FirstObservedAt']})
+                payload.update({'LastObservedAt':finding['LastObservedAt']})
+                payload.update({'UpdatedAt':finding['UpdatedAt']})
+                payload.update({'Severity':json.dumps(finding['Severity'], sort_keys=True)})
+                payload.update({'Title':finding['Title']})                        
+                payload.update({'ProductFields':json.dumps(finding['ProductFields'], sort_keys=True)})
+                payload.update({'ProductArn':finding['ProductArn']})
+                payload.update({'CreatedAt':finding['CreatedAt']})            
+                payload.update({'Resources':finding['Resources']})            
+                payload.update({'WorkflowState':finding['WorkflowState']})
+                payload.update({'Workflow':finding['Workflow']})
+                payload.update({'RecordState':finding['RecordState']})
+                
                 with sentinel:
-                    sentinel.send(json.dumps(finding))
+                    sentinel.send(payload)
                     
                 failed_sent_events_number = sentinel.failed_sent_events_number
                 successfull_sent_events_number = sentinel.successfull_sent_events_number              
@@ -184,7 +204,7 @@ class AzureSentinelConnector:
 
     def _post_data(self, customer_id, shared_key, body, log_type):
         events_number = len(body)
-        body = json.dumps(body)
+        body = json.dumps(body, sort_keys=True)
         method = 'POST'
         content_type = 'application/json'
         resource = '/api/logs'
@@ -201,8 +221,7 @@ class AzureSentinelConnector:
         }
 
         response = requests.post(uri, data=body, headers=headers)
-        if (response.status_code >= 200 and response.status_code <= 299):
-            logging.info('{} events have been successfully sent to Azure Sentinel'.format(events_number))
+        if (response.status_code >= 200 and response.status_code <= 299):            
             self.successfull_sent_events_number += events_number
             self.failedToSend = False
         else:
